@@ -4,7 +4,8 @@ const hands = {
   paper: { label: "パー", icon: "✋", beats: "rock" },
 };
 
-const calls = ["最初はグー", "じゃんけん...", "ぽん!"];
+const firstCalls = ["最初はグー", "じゃんけん...", "ぽん!"];
+const aikoCalls = ["あいこで...", "しょ!"];
 const roundDelay = 2200;
 let room = null;
 let roomId = "";
@@ -18,11 +19,15 @@ let cloudReady = false;
 const lobby = document.querySelector("#lobby");
 const roomView = document.querySelector("#room");
 const nameInput = document.querySelector("#nameInput");
+const targetCountInput = document.querySelector("#targetCountInput");
 const roomInput = document.querySelector("#roomInput");
 const createRoomButton = document.querySelector("#createRoomButton");
 const joinRoomButton = document.querySelector("#joinRoomButton");
+const lobbyMessage = document.querySelector("#lobbyMessage");
 const roomCode = document.querySelector("#roomCode");
 const syncStatus = document.querySelector("#syncStatus");
+const roomMeta = document.querySelector("#roomMeta");
+const sharePanel = document.querySelector(".share-panel");
 const shareLink = document.querySelector("#shareLink");
 const qrCanvas = document.querySelector("#qrCanvas");
 const copyButton = document.querySelector("#copyButton");
@@ -30,6 +35,8 @@ const leaveButton = document.querySelector("#leaveButton");
 const callText = document.querySelector("#callText");
 const roundMessage = document.querySelector("#roundMessage");
 const playersArea = document.querySelector("#players");
+const historyTitle = document.querySelector("#historyTitle");
+const historyList = document.querySelector("#historyList");
 const myStatus = document.querySelector("#myStatus");
 const choices = document.querySelectorAll(".choice");
 const nextButton = document.querySelector("#nextButton");
@@ -65,10 +72,10 @@ async function initCloud() {
 async function loadRoom(id) {
   if (cloudReady) {
     const snapshot = await db.collection("jankenRooms").doc(id).get();
-    return snapshot.exists ? snapshot.data() : null;
+    return snapshot.exists ? hydrateRoom(snapshot.data()) : null;
   }
   const saved = localStorage.getItem(storageKey(id));
-  return saved ? JSON.parse(saved) : null;
+  return saved ? hydrateRoom(JSON.parse(saved)) : null;
 }
 
 async function saveRoom(nextRoom) {
@@ -82,15 +89,34 @@ async function saveRoom(nextRoom) {
   render();
 }
 
-function createRoom(id) {
+function createRoom(id, targetCount = 2) {
   return {
     id,
     createdAt: Date.now(),
     round: 1,
+    attempt: 1,
+    targetCount,
+    locked: false,
+    aiko: false,
     status: "choosing",
     revealAt: 0,
     scored: false,
+    history: [],
     players: [],
+  };
+}
+
+function hydrateRoom(nextRoom) {
+  const players = nextRoom.players || [];
+  const targetCount = nextRoom.targetCount || Math.max(2, players.length || 2);
+  return {
+    ...nextRoom,
+    attempt: nextRoom.attempt || 1,
+    targetCount,
+    locked: Boolean(nextRoom.locked) || players.filter((player) => player.name).length >= targetCount,
+    aiko: Boolean(nextRoom.aiko),
+    history: nextRoom.history || [],
+    players,
   };
 }
 
@@ -102,13 +128,21 @@ async function joinRoom(id) {
   roomId = normalizeRoomId(id);
   if (!roomId) return;
   await initCloud();
-  room = (await loadRoom(roomId)) || createRoom(roomId);
+  const existingRoom = await loadRoom(roomId);
+  room = existingRoom || createRoom(roomId, Number(targetCountInput.value) || 2);
   playerId = sessionStorage.getItem(`janken-player-${roomId}`) || makeId(10);
   sessionStorage.setItem(`janken-player-${roomId}`, playerId);
 
-  if (!room.players.some((player) => player.id === playerId)) {
+  const alreadyJoined = room.players.some((player) => player.id === playerId);
+  if (!alreadyJoined && isRoomFull(room)) {
+    lobbyMessage.textContent = "このルームは締め切られています。";
+    return;
+  }
+
+  if (!alreadyJoined) {
     room.players.push({ id: playerId, name: getName(), hand: null, score: 0 });
   }
+  room.locked = isRoomFull(room);
 
   history.replaceState(null, "", getShareUrl(roomId));
   setupSync();
@@ -144,16 +178,30 @@ function visiblePlayers() {
   return room.players.filter((player) => player.name);
 }
 
+function isRoomFull(nextRoom = room) {
+  return nextRoom.players.filter((player) => player.name).length >= nextRoom.targetCount;
+}
+
 function currentPlayer() {
   return room.players.find((player) => player.id === playerId);
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function chooseHand(hand) {
+  room = (await loadRoom(room.id)) || room;
   const player = currentPlayer();
-  if (!player || player.hand || room.status !== "choosing") return;
+  if (!player || player.hand || room.status !== "choosing" || !room.locked) return;
 
   player.hand = hand;
-  if (visiblePlayers().length >= 2 && visiblePlayers().every((item) => item.hand)) {
+  if (visiblePlayers().length === room.targetCount && visiblePlayers().every((item) => item.hand)) {
     room.status = "countdown";
     room.revealAt = Date.now() + roundDelay;
     room.scored = false;
@@ -170,23 +218,61 @@ function judgeRound(players) {
 }
 
 async function finishRound() {
+  room = (await loadRoom(room.id)) || room;
   if (!room || room.status !== "countdown" || room.scored || Date.now() < room.revealAt) return;
 
   const players = visiblePlayers();
   const winners = judgeRound(players);
-  winners.forEach((winner) => {
-    winner.score += 1;
-  });
-  room.status = "revealed";
+  const historyItem = {
+    round: room.round,
+    attempt: room.attempt,
+    type: winners.length ? "win" : "draw",
+    winners: winners.map((winner) => winner.name),
+    hands: players.map((player) => ({
+      name: player.name,
+      hand: player.hand,
+    })),
+    at: Date.now(),
+  };
+
+  if (winners.length) {
+    winners.forEach((winner) => {
+      winner.score += 1;
+    });
+    room.status = "revealed";
+    room.aiko = false;
+  } else {
+    room.status = "aiko";
+    room.aiko = true;
+  }
+
+  room.history = [historyItem, ...room.history].slice(0, 12);
   room.scored = true;
   await saveRoom(room);
 }
 
 async function nextRound() {
+  room = (await loadRoom(room.id)) || room;
   room.round += 1;
+  room.attempt = 1;
   room.status = "choosing";
   room.revealAt = 0;
   room.scored = false;
+  room.aiko = false;
+  room.players.forEach((player) => {
+    player.hand = null;
+  });
+  await saveRoom(room);
+}
+
+async function continueAiko() {
+  room = (await loadRoom(room.id)) || room;
+  if (!room || room.status !== "aiko") return;
+  room.attempt += 1;
+  room.status = "choosing";
+  room.revealAt = 0;
+  room.scored = false;
+  room.aiko = true;
   room.players.forEach((player) => {
     player.hand = null;
   });
@@ -194,9 +280,11 @@ async function nextRound() {
 }
 
 async function resetScores() {
+  room = (await loadRoom(room.id)) || room;
   room.players.forEach((player) => {
     player.score = 0;
   });
+  room.history = [];
   await nextRound();
 }
 
@@ -210,7 +298,7 @@ function renderPlayer(player) {
   return `
     <article class="player-card ${stateClass} ${isMe ? "is-me" : ""}">
       <div>
-        <span class="name">${player.name}${isMe ? " / あなた" : ""}</span>
+        <span class="name">${escapeHtml(player.name)}${isMe ? " / あなた" : ""}</span>
         <strong>${player.score}</strong>
       </div>
       <span class="player-hand">${handText}</span>
@@ -222,22 +310,25 @@ function renderCall() {
   clearTimeout(callTimer);
   callText.className = "call-text";
 
-  if (visiblePlayers().length < 2) {
-    callText.textContent = "待機中";
-    roundMessage.textContent = "2人以上集まったら始められます。";
+  if (!room.locked) {
+    const joined = visiblePlayers().length;
+    callText.textContent = "募集中";
+    roundMessage.textContent = `${joined} / ${room.targetCount} 人が参加中`;
     return;
   }
 
   if (room.status === "choosing") {
     const ready = visiblePlayers().filter((player) => player.hand).length;
-    callText.textContent = "選択中";
-    roundMessage.textContent = `${ready} / ${visiblePlayers().length} 人が選択済み`;
+    callText.textContent = room.aiko ? "あいこで..." : "選択中";
+    roundMessage.textContent = `${ready} / ${room.targetCount} 人が選択済み`;
     return;
   }
 
   if (room.status === "countdown") {
     const remaining = Math.max(0, room.revealAt - Date.now());
-    const index = Math.min(calls.length - 1, Math.floor((roundDelay - remaining) / 730));
+    const calls = room.aiko ? aikoCalls : firstCalls;
+    const step = room.aiko ? 1000 : 730;
+    const index = Math.min(calls.length - 1, Math.floor((roundDelay - remaining) / step));
     callText.textContent = calls[index];
     callText.classList.add("is-counting");
     roundMessage.textContent = "全員の手がそろいました。";
@@ -245,6 +336,16 @@ function renderCall() {
       if (remaining <= 0) finishRound();
       render();
     }, remaining > 0 ? 180 : 0);
+    return;
+  }
+
+  if (room.status === "aiko") {
+    callText.textContent = "あいこ";
+    callText.classList.add("is-draw");
+    roundMessage.textContent = "勝者が出るまで続けます。";
+    callTimer = setTimeout(() => {
+      continueAiko();
+    }, 1500);
     return;
   }
 
@@ -429,6 +530,28 @@ function placeFormat(matrix) {
   }
 }
 
+function renderMeta() {
+  const joined = visiblePlayers().length;
+  const closed = room.locked;
+  roomMeta.innerHTML = `
+    <span class="meta-pill ${closed ? "is-closed" : "is-live"}">${closed ? "参加締切" : "参加受付中"}</span>
+    <span class="meta-pill">${joined} / ${room.targetCount} 人</span>
+    <span class="meta-pill">第${room.round}回戦${room.attempt > 1 ? ` ${room.attempt}投目` : ""}</span>
+  `;
+}
+
+function renderHistory() {
+  const history = room.history || [];
+  historyTitle.textContent = history.length ? `${history.length}件` : "まだ結果はありません";
+  historyList.innerHTML = history
+    .map((item) => {
+      const handsText = item.hands.map((entry) => `${entry.name}:${hands[entry.hand]?.label || "?"}`).join(" / ");
+      const resultText = item.type === "draw" ? "あいこ" : `${item.winners.join("、")} 勝ち`;
+      return `<li><span>${escapeHtml(`第${item.round}回 ${item.attempt}投目 ${resultText}`)}</span><span>${escapeHtml(handsText)}</span></li>`;
+    })
+    .join("");
+}
+
 function render() {
   if (!room) return;
   lobby.classList.add("hidden");
@@ -438,9 +561,12 @@ function render() {
   roomCode.textContent = room.id;
   syncStatus.textContent = cloudReady ? "クラウド同期" : "ローカル";
   syncStatus.classList.toggle("is-cloud", cloudReady);
+  renderMeta();
   shareLink.textContent = url;
   shareLink.href = url;
+  sharePanel.classList.toggle("is-closed", room.locked);
   playersArea.innerHTML = visiblePlayers().map(renderPlayer).join("");
+  renderHistory();
   renderQr(room.id);
   renderCall();
 
@@ -448,9 +574,10 @@ function render() {
   myStatus.textContent = me?.hand ? hands[me.hand].label : "未選択";
   choices.forEach((button) => {
     const locked = me?.hand === button.dataset.hand;
-    button.disabled = Boolean(me?.hand) || room.status !== "choosing";
+    button.disabled = Boolean(me?.hand) || room.status !== "choosing" || !room.locked;
     button.classList.toggle("locked", locked);
   });
+  nextButton.disabled = room.status !== "revealed";
 }
 
 createRoomButton.addEventListener("click", () => joinRoom(makeId()));

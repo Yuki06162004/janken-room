@@ -32,7 +32,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -88,6 +89,7 @@ p {
 .join-box,
 .share-panel,
 .my-panel,
+.history-panel,
 .call-stage {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -108,7 +110,8 @@ label,
   font-weight: 800;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -118,9 +121,18 @@ input {
   color: var(--ink);
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--blue);
   outline: 3px solid rgba(57, 111, 186, 0.18);
+}
+
+.lobby-message {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--red);
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .join-actions,
@@ -161,6 +173,13 @@ input:focus {
   color: var(--muted);
 }
 
+.primary:disabled,
+.secondary:disabled,
+.ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .room {
   display: grid;
   gap: 16px;
@@ -196,12 +215,49 @@ input:focus {
   color: var(--green);
 }
 
+.room-meta {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.meta-pill {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.meta-pill.is-live {
+  border-color: rgba(35, 124, 104, 0.35);
+  background: rgba(35, 124, 104, 0.1);
+  color: var(--green);
+}
+
+.meta-pill.is-closed {
+  border-color: rgba(216, 74, 66, 0.32);
+  background: rgba(216, 74, 66, 0.09);
+  color: var(--red);
+}
+
 .share-panel {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 14px;
   align-items: center;
   padding: 14px;
+}
+
+.share-panel.is-closed {
+  display: none;
 }
 
 #qrCanvas {
@@ -303,6 +359,44 @@ input:focus {
   place-items: center;
   font-size: clamp(1.5rem, 5vw, 4rem);
   font-weight: 900;
+}
+
+.history-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.history-panel > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-panel strong {
+  font-size: 1rem;
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 170px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.history-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .my-panel {

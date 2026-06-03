@@ -20,12 +20,21 @@
         <div class="join-box">
           <label for="nameInput">あなたの名前</label>
           <input id="nameInput" type="text" maxlength="16" placeholder="例: ゆうき" />
+          <label for="targetCountInput">何人で実施する</label>
+          <select id="targetCountInput">
+            <option value="2">2人</option>
+            <option value="3">3人</option>
+            <option value="4">4人</option>
+            <option value="5">5人</option>
+            <option value="6">6人</option>
+          </select>
           <div class="join-actions">
             <button id="createRoomButton" class="primary" type="button">ルーム作成</button>
             <button id="joinRoomButton" class="secondary" type="button">参加</button>
           </div>
           <label for="roomInput">ルームコード</label>
           <input id="roomInput" type="text" maxlength="8" placeholder="例: A7K2Q9" />
+          <p id="lobbyMessage" class="lobby-message"></p>
         </div>
       </section>
 
@@ -36,6 +45,7 @@
             <strong id="roomCode">------</strong>
             <span id="syncStatus" class="sync-status">ローカル</span>
           </div>
+          <div id="roomMeta" class="room-meta"></div>
           <button id="leaveButton" class="ghost" type="button">退出</button>
         </header>
 
@@ -55,6 +65,14 @@
         </section>
 
         <section id="players" class="players" aria-label="参加者"></section>
+
+        <section class="history-panel" aria-label="履歴">
+          <div>
+            <span class="label">履歴</span>
+            <strong id="historyTitle">まだ結果はありません</strong>
+          </div>
+          <ol id="historyList" class="history-list"></ol>
+        </section>
 
         <section class="my-panel" aria-label="自分の手">
           <div>
