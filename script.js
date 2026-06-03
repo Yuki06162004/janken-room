@@ -11,6 +11,9 @@ let roomId = "";
 let playerId = "";
 let callTimer = null;
 let channel = null;
+let db = null;
+let unsubscribeRoom = null;
+let cloudReady = false;
 
 const lobby = document.querySelector("#lobby");
 const roomView = document.querySelector("#room");
@@ -19,6 +22,7 @@ const roomInput = document.querySelector("#roomInput");
 const createRoomButton = document.querySelector("#createRoomButton");
 const joinRoomButton = document.querySelector("#joinRoomButton");
 const roomCode = document.querySelector("#roomCode");
+const syncStatus = document.querySelector("#syncStatus");
 const shareLink = document.querySelector("#shareLink");
 const qrCanvas = document.querySelector("#qrCanvas");
 const copyButton = document.querySelector("#copyButton");
@@ -49,15 +53,32 @@ function getShareUrl(id) {
   return `${base}#room=${id}`;
 }
 
-function loadRoom(id) {
+async function initCloud() {
+  const config = window.JANKEN_FIREBASE_CONFIG;
+  cloudReady = Boolean(config?.apiKey && config?.projectId && window.firebase?.firestore);
+  if (!cloudReady) return false;
+  if (!window.firebase.apps.length) window.firebase.initializeApp(config);
+  db = window.firebase.firestore();
+  return true;
+}
+
+async function loadRoom(id) {
+  if (cloudReady) {
+    const snapshot = await db.collection("jankenRooms").doc(id).get();
+    return snapshot.exists ? snapshot.data() : null;
+  }
   const saved = localStorage.getItem(storageKey(id));
   return saved ? JSON.parse(saved) : null;
 }
 
-function saveRoom(nextRoom) {
+async function saveRoom(nextRoom) {
   room = nextRoom;
-  localStorage.setItem(storageKey(room.id), JSON.stringify(room));
-  channel?.postMessage({ roomId: room.id });
+  if (cloudReady) {
+    await db.collection("jankenRooms").doc(room.id).set(JSON.parse(JSON.stringify(room)));
+  } else {
+    localStorage.setItem(storageKey(room.id), JSON.stringify(room));
+    channel?.postMessage({ roomId: room.id });
+  }
   render();
 }
 
@@ -77,10 +98,11 @@ function getName() {
   return nameInput.value.trim() || `プレイヤー${Math.floor(Math.random() * 90) + 10}`;
 }
 
-function joinRoom(id) {
+async function joinRoom(id) {
   roomId = normalizeRoomId(id);
   if (!roomId) return;
-  room = loadRoom(roomId) || createRoom(roomId);
+  await initCloud();
+  room = (await loadRoom(roomId)) || createRoom(roomId);
   playerId = sessionStorage.getItem(`janken-player-${roomId}`) || makeId(10);
   sessionStorage.setItem(`janken-player-${roomId}`, playerId);
 
@@ -89,18 +111,31 @@ function joinRoom(id) {
   }
 
   history.replaceState(null, "", getShareUrl(roomId));
-  setupChannel();
-  saveRoom(room);
+  setupSync();
+  await saveRoom(room);
 }
 
-function setupChannel() {
+function setupSync() {
+  unsubscribeRoom?.();
+  unsubscribeRoom = null;
   channel?.close();
+  channel = null;
+
+  if (cloudReady) {
+    unsubscribeRoom = db.collection("jankenRooms").doc(roomId).onSnapshot((snapshot) => {
+      if (!snapshot.exists) return;
+      room = snapshot.data();
+      render();
+    });
+    return;
+  }
+
   channel = "BroadcastChannel" in window ? new BroadcastChannel(`janken-${roomId}`) : null;
   if (!channel) return;
   channel.onmessage = () => {
-    const latest = loadRoom(roomId);
+    const latest = localStorage.getItem(storageKey(roomId));
     if (!latest) return;
-    room = latest;
+    room = JSON.parse(latest);
     render();
   };
 }
@@ -113,7 +148,7 @@ function currentPlayer() {
   return room.players.find((player) => player.id === playerId);
 }
 
-function chooseHand(hand) {
+async function chooseHand(hand) {
   const player = currentPlayer();
   if (!player || player.hand || room.status !== "choosing") return;
 
@@ -123,7 +158,7 @@ function chooseHand(hand) {
     room.revealAt = Date.now() + roundDelay;
     room.scored = false;
   }
-  saveRoom(room);
+  await saveRoom(room);
 }
 
 function judgeRound(players) {
@@ -134,7 +169,7 @@ function judgeRound(players) {
   return players.filter((player) => player.hand === winnerHand);
 }
 
-function finishRound() {
+async function finishRound() {
   if (!room || room.status !== "countdown" || room.scored || Date.now() < room.revealAt) return;
 
   const players = visiblePlayers();
@@ -144,10 +179,10 @@ function finishRound() {
   });
   room.status = "revealed";
   room.scored = true;
-  saveRoom(room);
+  await saveRoom(room);
 }
 
-function nextRound() {
+async function nextRound() {
   room.round += 1;
   room.status = "choosing";
   room.revealAt = 0;
@@ -155,14 +190,14 @@ function nextRound() {
   room.players.forEach((player) => {
     player.hand = null;
   });
-  saveRoom(room);
+  await saveRoom(room);
 }
 
-function resetScores() {
+async function resetScores() {
   room.players.forEach((player) => {
     player.score = 0;
   });
-  nextRound();
+  await nextRound();
 }
 
 function renderPlayer(player) {
@@ -401,6 +436,8 @@ function render() {
 
   const url = getShareUrl(room.id);
   roomCode.textContent = room.id;
+  syncStatus.textContent = cloudReady ? "クラウド同期" : "ローカル";
+  syncStatus.classList.toggle("is-cloud", cloudReady);
   shareLink.textContent = url;
   shareLink.href = url;
   playersArea.innerHTML = visiblePlayers().map(renderPlayer).join("");
@@ -425,6 +462,7 @@ choices.forEach((button) => button.addEventListener("click", () => chooseHand(bu
 nextButton.addEventListener("click", nextRound);
 resetButton.addEventListener("click", resetScores);
 leaveButton.addEventListener("click", () => {
+  unsubscribeRoom?.();
   channel?.close();
   location.hash = "";
   location.reload();

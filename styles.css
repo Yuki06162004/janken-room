@@ -179,6 +179,23 @@ input:focus {
   letter-spacing: 0.12em;
 }
 
+.sync-status {
+  display: inline-flex;
+  margin-top: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sync-status.is-cloud {
+  border-color: rgba(35, 124, 104, 0.35);
+  background: rgba(35, 124, 104, 0.1);
+  color: var(--green);
+}
+
 .share-panel {
   display: grid;
   grid-template-columns: auto 1fr;

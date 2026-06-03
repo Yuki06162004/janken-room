@@ -34,6 +34,7 @@
           <div>
             <span class="label">ルーム</span>
             <strong id="roomCode">------</strong>
+            <span id="syncStatus" class="sync-status">ローカル</span>
           </div>
           <button id="leaveButton" class="ghost" type="button">退出</button>
         </header>
@@ -83,6 +84,9 @@
       </section>
     </main>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
