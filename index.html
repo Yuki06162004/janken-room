@@ -50,11 +50,11 @@
         </header>
 
         <section class="share-panel" aria-label="ルーム共有">
-          <canvas id="qrCanvas" width="132" height="132" aria-label="共有コード"></canvas>
+          <img id="qrImage" class="qr-image" alt="共有リンクのQRコード" />
           <div>
             <span class="label">共有</span>
             <a id="shareLink" class="share-link" href=""></a>
-            <p class="share-note">QRはルームコードを読み取れます。</p>
+            <p class="share-note">QRを読むとこのルームを開けます。</p>
             <button id="copyButton" class="secondary small" type="button">コピー</button>
           </div>
         </section>
@@ -98,6 +98,19 @@
         <div class="actions">
           <button id="nextButton" class="secondary" type="button">次の勝負</button>
           <button id="resetButton" class="ghost" type="button">スコアリセット</button>
+        </div>
+      </section>
+
+      <section id="moveOverlay" class="move-overlay hidden" aria-label="移動中">
+        <div class="move-card">
+          <div class="move-icon">✌</div>
+          <strong>参加者がそろいました</strong>
+          <span>ルームへ移動します</span>
+          <div class="move-dots" aria-hidden="true">
+            <i></i>
+            <i></i>
+            <i></i>
+          </div>
         </div>
       </section>
     </main>

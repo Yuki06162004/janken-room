@@ -15,6 +15,8 @@ let channel = null;
 let db = null;
 let unsubscribeRoom = null;
 let cloudReady = false;
+let wasLocked = false;
+let moveTimer = null;
 
 const lobby = document.querySelector("#lobby");
 const roomView = document.querySelector("#room");
@@ -29,9 +31,10 @@ const syncStatus = document.querySelector("#syncStatus");
 const roomMeta = document.querySelector("#roomMeta");
 const sharePanel = document.querySelector(".share-panel");
 const shareLink = document.querySelector("#shareLink");
-const qrCanvas = document.querySelector("#qrCanvas");
+const qrImage = document.querySelector("#qrImage");
 const copyButton = document.querySelector("#copyButton");
 const leaveButton = document.querySelector("#leaveButton");
+const moveOverlay = document.querySelector("#moveOverlay");
 const callText = document.querySelector("#callText");
 const roundMessage = document.querySelector("#roundMessage");
 const playersArea = document.querySelector("#players");
@@ -158,7 +161,7 @@ function setupSync() {
   if (cloudReady) {
     unsubscribeRoom = db.collection("jankenRooms").doc(roomId).onSnapshot((snapshot) => {
       if (!snapshot.exists) return;
-      room = snapshot.data();
+      room = hydrateRoom(snapshot.data());
       render();
     });
     return;
@@ -169,7 +172,7 @@ function setupSync() {
   channel.onmessage = () => {
     const latest = localStorage.getItem(storageKey(roomId));
     if (!latest) return;
-    room = JSON.parse(latest);
+    room = hydrateRoom(JSON.parse(latest));
     render();
   };
 }
@@ -356,22 +359,7 @@ function renderCall() {
 }
 
 function renderQr(text) {
-  const modules = makeQr(text);
-  const ctx = qrCanvas.getContext("2d");
-  const quiet = 4;
-  const cells = modules.length + quiet * 2;
-  const size = qrCanvas.width / cells;
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, qrCanvas.width, qrCanvas.height);
-  ctx.fillStyle = "#202124";
-  modules.forEach((row, y) => {
-    row.forEach((dark, x) => {
-      if (dark) {
-        ctx.fillRect((x + quiet) * size, (y + quiet) * size, Math.ceil(size), Math.ceil(size));
-      }
-    });
-  });
+  qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(text)}`;
 }
 
 function makeQr(text) {
@@ -552,6 +540,14 @@ function renderHistory() {
     .join("");
 }
 
+function showMoveOverlay() {
+  clearTimeout(moveTimer);
+  moveOverlay.classList.remove("hidden");
+  moveTimer = setTimeout(() => {
+    moveOverlay.classList.add("hidden");
+  }, 1900);
+}
+
 function render() {
   if (!room) return;
   lobby.classList.add("hidden");
@@ -567,8 +563,13 @@ function render() {
   sharePanel.classList.toggle("is-closed", room.locked);
   playersArea.innerHTML = visiblePlayers().map(renderPlayer).join("");
   renderHistory();
-  renderQr(room.id);
+  renderQr(url);
   renderCall();
+
+  if (room.locked && !wasLocked) {
+    showMoveOverlay();
+  }
+  wasLocked = room.locked;
 
   const me = currentPlayer();
   myStatus.textContent = me?.hand ? hands[me.hand].label : "未選択";
