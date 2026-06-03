@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>じゃんけんルーム</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app" aria-live="polite">
+      <section id="lobby" class="lobby">
+        <div class="brand">
+          <span class="brand-mark">✊</span>
+          <div>
+            <h1>じゃんけんルーム</h1>
+            <p>ルームを作って、みんなで同時に手を出そう。</p>
+          </div>
+        </div>
+
+        <div class="join-box">
+          <label for="nameInput">あなたの名前</label>
+          <input id="nameInput" type="text" maxlength="16" placeholder="例: ゆうき" />
+          <div class="join-actions">
+            <button id="createRoomButton" class="primary" type="button">ルーム作成</button>
+            <button id="joinRoomButton" class="secondary" type="button">参加</button>
+          </div>
+          <label for="roomInput">ルームコード</label>
+          <input id="roomInput" type="text" maxlength="8" placeholder="例: A7K2Q9" />
+        </div>
+      </section>
+
+      <section id="room" class="room hidden">
+        <header class="room-header">
+          <div>
+            <span class="label">ルーム</span>
+            <strong id="roomCode">------</strong>
+          </div>
+          <button id="leaveButton" class="ghost" type="button">退出</button>
+        </header>
+
+        <section class="share-panel" aria-label="ルーム共有">
+          <canvas id="qrCanvas" width="132" height="132" aria-label="共有コード"></canvas>
+          <div>
+            <span class="label">共有</span>
+            <a id="shareLink" class="share-link" href=""></a>
+            <p class="share-note">QRはルームコードを読み取れます。</p>
+            <button id="copyButton" class="secondary small" type="button">コピー</button>
+          </div>
+        </section>
+
+        <section class="call-stage" aria-label="結果">
+          <div id="callText" class="call-text">待機中</div>
+          <div id="roundMessage" class="round-message">2人以上集まったら始められます。</div>
+        </section>
+
+        <section id="players" class="players" aria-label="参加者"></section>
+
+        <section class="my-panel" aria-label="自分の手">
+          <div>
+            <span class="label">あなたの手</span>
+            <strong id="myStatus">未選択</strong>
+          </div>
+          <div class="controls">
+            <button type="button" class="choice" data-hand="rock">
+              <span>グー</span>
+              <strong>✊</strong>
+            </button>
+            <button type="button" class="choice" data-hand="scissors">
+              <span>チョキ</span>
+              <strong>✌</strong>
+            </button>
+            <button type="button" class="choice" data-hand="paper">
+              <span>パー</span>
+              <strong>✋</strong>
+            </button>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button id="nextButton" class="secondary" type="button">次の勝負</button>
+          <button id="resetButton" class="ghost" type="button">スコアリセット</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
