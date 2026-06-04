@@ -44,6 +44,12 @@ const roundMessage = document.querySelector("#roundMessage");
 const playersArea = document.querySelector("#players");
 const historyTitle = document.querySelector("#historyTitle");
 const historyList = document.querySelector("#historyList");
+const startPanel = document.querySelector("#startPanel");
+const startStatus = document.querySelector("#startStatus");
+const startYesButton = document.querySelector("#startYesButton");
+const startWaitButton = document.querySelector("#startWaitButton");
+const myNameInput = document.querySelector("#myNameInput");
+const saveNameButton = document.querySelector("#saveNameButton");
 const myStatus = document.querySelector("#myStatus");
 const choices = document.querySelectorAll(".choice");
 const nextButton = document.querySelector("#nextButton");
@@ -106,6 +112,7 @@ function createRoom(id, targetCount = 2) {
     locked: false,
     aiko: false,
     status: "choosing",
+    startVotes: {},
     revealAt: 0,
     scored: false,
     history: [],
@@ -122,6 +129,7 @@ function hydrateRoom(nextRoom) {
     targetCount,
     locked: Boolean(nextRoom.locked) || players.filter((player) => player.name).length >= targetCount,
     aiko: Boolean(nextRoom.aiko),
+    startVotes: nextRoom.startVotes || {},
     history: nextRoom.history || [],
     players,
   };
@@ -150,6 +158,10 @@ async function joinRoom(id) {
     room.players.push({ id: playerId, name: getName(), hand: null, score: 0 });
   }
   room.locked = isRoomFull(room);
+  if (room.locked && room.status === "choosing" && !room.players.some((player) => player.hand)) {
+    room.status = "ready";
+    room.startVotes = room.startVotes || {};
+  }
 
   history.replaceState(null, "", getShareUrl(roomId));
   setupSync();
@@ -216,6 +228,42 @@ async function chooseHand(hand) {
   await saveRoom(room);
 }
 
+async function voteStart(isReady) {
+  room = (await loadRoom(room.id)) || room;
+  const player = currentPlayer();
+  if (!player || room.status !== "ready") return;
+
+  room.startVotes = room.startVotes || {};
+  room.startVotes[player.id] = isReady;
+
+  const players = visiblePlayers();
+  if (players.length === room.targetCount && players.every((item) => room.startVotes[item.id] === true)) {
+    room.status = "choosing";
+    room.aiko = false;
+    room.scored = false;
+    room.revealAt = 0;
+    room.players.forEach((item) => {
+      item.hand = null;
+    });
+  }
+
+  await saveRoom(room);
+}
+
+async function updateMyName() {
+  room = (await loadRoom(room.id)) || room;
+  const player = currentPlayer();
+  const nextName = myNameInput.value.trim();
+  if (!player || !nextName) return;
+
+  player.name = nextName;
+  await saveRoom(room);
+  saveNameButton.textContent = "変更済み";
+  setTimeout(() => {
+    saveNameButton.textContent = "変更";
+  }, 1200);
+}
+
 function judgeRound(players) {
   const unique = [...new Set(players.map((player) => player.hand))];
   if (unique.length !== 2) return [];
@@ -263,6 +311,7 @@ async function nextRound() {
   room.round += 1;
   room.attempt = 1;
   room.status = "choosing";
+  room.startVotes = {};
   room.revealAt = 0;
   room.scored = false;
   room.aiko = false;
@@ -331,6 +380,14 @@ function renderCall() {
     const ready = visiblePlayers().filter((player) => player.hand).length;
     callText.textContent = room.aiko ? "あいこで..." : "手を選択";
     roundMessage.textContent = `${ready} / ${room.targetCount} 人が選択済み`;
+    return;
+  }
+
+  if (room.status === "ready") {
+    hideCallOverlay();
+    const yesCount = visiblePlayers().filter((player) => room.startVotes?.[player.id] === true).length;
+    callText.textContent = "開始確認";
+    roundMessage.textContent = `${yesCount} / ${room.targetCount} 人が開始OK`;
     return;
   }
 
@@ -551,6 +608,24 @@ function renderHistory() {
     .join("");
 }
 
+function renderStartPanel() {
+  const isReadyStatus = room.status === "ready";
+  startPanel.classList.toggle("hidden", !isReadyStatus);
+  if (!isReadyStatus) return;
+
+  const players = visiblePlayers();
+  const yesCount = players.filter((player) => room.startVotes?.[player.id] === true).length;
+  const waitCount = players.filter((player) => room.startVotes?.[player.id] === false).length;
+  const myVote = room.startVotes?.[playerId];
+
+  startStatus.textContent =
+    waitCount > 0
+      ? `${waitCount}人が待機中です。準備できたら「はい」を押してください。`
+      : `${yesCount} / ${room.targetCount} 人が「はい」を選択しました。`;
+  startYesButton.classList.toggle("is-selected", myVote === true);
+  startWaitButton.classList.toggle("is-selected", myVote === false);
+}
+
 function showMoveOverlay() {
   clearTimeout(moveTimer);
   moveOverlay.classList.remove("hidden");
@@ -591,6 +666,7 @@ function render() {
   sharePanel.classList.toggle("is-closed", room.locked);
   playersArea.innerHTML = visiblePlayers().map(renderPlayer).join("");
   renderHistory();
+  renderStartPanel();
   renderQr(url);
   renderCall();
 
@@ -600,6 +676,9 @@ function render() {
   wasLocked = room.locked;
 
   const me = currentPlayer();
+  if (me && document.activeElement !== myNameInput) {
+    myNameInput.value = me.name;
+  }
   myStatus.textContent = me?.hand ? hands[me.hand].label : "未選択";
   choices.forEach((button) => {
     const locked = me?.hand === button.dataset.hand;
@@ -615,6 +694,12 @@ joinRoomButton.addEventListener("click", () => {
   if (id) joinRoom(id);
 });
 choices.forEach((button) => button.addEventListener("click", () => chooseHand(button.dataset.hand)));
+startYesButton.addEventListener("click", () => voteStart(true));
+startWaitButton.addEventListener("click", () => voteStart(false));
+saveNameButton.addEventListener("click", updateMyName);
+myNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") updateMyName();
+});
 nextButton.addEventListener("click", nextRound);
 resetButton.addEventListener("click", resetScores);
 leaveButton.addEventListener("click", () => {

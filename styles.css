@@ -89,6 +89,7 @@ p {
 .join-box,
 .share-panel,
 .my-panel,
+.start-panel,
 .history-panel,
 .call-stage {
   border: 1px solid var(--line);
@@ -178,6 +179,14 @@ select:focus {
 .ghost:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.primary.is-selected,
+.secondary.is-selected,
+.ghost.is-selected {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
 }
 
 .room {
@@ -314,6 +323,32 @@ select:focus {
   font-weight: 700;
 }
 
+.start-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+  border-color: rgba(57, 111, 186, 0.28);
+  background: #f8fbff;
+}
+
+.start-panel strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.45rem;
+}
+
+.start-panel p {
+  margin: 6px 0 0;
+  font-weight: 800;
+}
+
+.start-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .players {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -406,7 +441,18 @@ select:focus {
   padding: 16px;
 }
 
-.my-panel > div:first-child {
+.name-edit {
+  display: grid;
+  gap: 8px;
+}
+
+.name-edit > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.hand-status {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -553,12 +599,12 @@ select:focus {
 .call-overlay {
   position: fixed;
   inset: 0;
-  z-index: 12;
+  z-index: 30;
   display: grid;
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(135deg, rgba(57, 111, 186, 0.86), rgba(35, 124, 104, 0.88)),
+    linear-gradient(135deg, #396fba, #237c68),
     var(--ink);
   color: white;
   text-align: center;
@@ -566,7 +612,7 @@ select:focus {
 
 .call-overlay.is-aiko {
   background:
-    linear-gradient(135deg, rgba(216, 74, 66, 0.9), rgba(243, 193, 75, 0.9)),
+    linear-gradient(135deg, #d84a42, #f3c14b),
     var(--ink);
 }
 
@@ -662,8 +708,14 @@ select:focus {
   }
 
   .join-actions,
-  .actions {
+  .actions,
+  .start-actions {
     flex-wrap: wrap;
+  }
+
+  .start-panel,
+  .name-edit > div {
+    grid-template-columns: 1fr;
   }
 
   .controls {

@@ -64,6 +64,18 @@
           <div id="roundMessage" class="round-message">2人以上集まったら始められます。</div>
         </section>
 
+        <section id="startPanel" class="start-panel hidden" aria-label="開始確認">
+          <div>
+            <span class="label">開始確認</span>
+            <strong>ゲームを開始しますか？</strong>
+            <p id="startStatus">全員の返答を待っています。</p>
+          </div>
+          <div class="start-actions">
+            <button id="startYesButton" class="primary" type="button">はい</button>
+            <button id="startWaitButton" class="ghost" type="button">待って</button>
+          </div>
+        </section>
+
         <section id="players" class="players" aria-label="参加者"></section>
 
         <section class="history-panel" aria-label="履歴">
@@ -75,7 +87,14 @@
         </section>
 
         <section class="my-panel" aria-label="自分の手">
-          <div>
+          <div class="name-edit">
+            <label for="myNameInput">自分の名前</label>
+            <div>
+              <input id="myNameInput" type="text" maxlength="16" />
+              <button id="saveNameButton" class="secondary small" type="button">変更</button>
+            </div>
+          </div>
+          <div class="hand-status">
             <span class="label">あなたの手</span>
             <strong id="myStatus">未選択</strong>
           </div>
@@ -105,13 +124,18 @@
         <div class="move-card">
           <div class="move-icon">✌</div>
           <strong>参加者がそろいました</strong>
-          <span>ルームへ移動します</span>
+          <span>対戦ルームへ移動中！</span>
+          <p>全員で開始確認をします</p>
           <div class="move-dots" aria-hidden="true">
             <i></i>
             <i></i>
             <i></i>
           </div>
         </div>
+      </section>
+
+      <section id="callOverlay" class="call-overlay hidden" aria-label="じゃんけんの掛け声">
+        <div id="callOverlayText" class="call-overlay-text">じゃんけん...</div>
       </section>
     </main>
 
