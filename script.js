@@ -17,6 +17,8 @@ let unsubscribeRoom = null;
 let cloudReady = false;
 let wasLocked = false;
 let moveTimer = null;
+let callOverlayTimer = null;
+let lastCallOverlayText = "";
 
 const lobby = document.querySelector("#lobby");
 const roomView = document.querySelector("#room");
@@ -35,6 +37,8 @@ const qrImage = document.querySelector("#qrImage");
 const copyButton = document.querySelector("#copyButton");
 const leaveButton = document.querySelector("#leaveButton");
 const moveOverlay = document.querySelector("#moveOverlay");
+const callOverlay = document.querySelector("#callOverlay");
+const callOverlayText = document.querySelector("#callOverlayText");
 const callText = document.querySelector("#callText");
 const roundMessage = document.querySelector("#roundMessage");
 const playersArea = document.querySelector("#players");
@@ -217,7 +221,8 @@ function judgeRound(players) {
   if (unique.length !== 2) return [];
 
   const winnerHand = hands[unique[0]].beats === unique[1] ? unique[0] : unique[1];
-  return players.filter((player) => player.hand === winnerHand);
+  const winners = players.filter((player) => player.hand === winnerHand);
+  return winners.length === 1 ? winners : [];
 }
 
 async function finishRound() {
@@ -229,7 +234,7 @@ async function finishRound() {
   const historyItem = {
     round: room.round,
     attempt: room.attempt,
-    type: winners.length ? "win" : "draw",
+    type: winners.length === 1 ? "win" : "continue",
     winners: winners.map((winner) => winner.name),
     hands: players.map((player) => ({
       name: player.name,
@@ -238,10 +243,8 @@ async function finishRound() {
     at: Date.now(),
   };
 
-  if (winners.length) {
-    winners.forEach((winner) => {
-      winner.score += 1;
-    });
+  if (winners.length === 1) {
+    winners[0].score += 1;
     room.status = "revealed";
     room.aiko = false;
   } else {
@@ -256,6 +259,7 @@ async function finishRound() {
 
 async function nextRound() {
   room = (await loadRoom(room.id)) || room;
+  lastCallOverlayText = "";
   room.round += 1;
   room.attempt = 1;
   room.status = "choosing";
@@ -271,6 +275,7 @@ async function nextRound() {
 async function continueAiko() {
   room = (await loadRoom(room.id)) || room;
   if (!room || room.status !== "aiko") return;
+  lastCallOverlayText = "";
   room.attempt += 1;
   room.status = "choosing";
   room.revealAt = 0;
@@ -295,7 +300,7 @@ function renderPlayer(player) {
   const isMe = player.id === playerId;
   const selected = Boolean(player.hand);
   const showHand = room.status === "revealed" || isMe;
-  const handText = selected && showHand ? hands[player.hand].icon : selected ? "選択中" : "待機中";
+  const handText = selected && showHand ? hands[player.hand].icon : selected ? "選択済み" : "選択中";
   const stateClass = selected ? "is-ready" : "is-waiting";
 
   return `
@@ -314,6 +319,7 @@ function renderCall() {
   callText.className = "call-text";
 
   if (!room.locked) {
+    hideCallOverlay();
     const joined = visiblePlayers().length;
     callText.textContent = "募集中";
     roundMessage.textContent = `${joined} / ${room.targetCount} 人が参加中`;
@@ -321,8 +327,9 @@ function renderCall() {
   }
 
   if (room.status === "choosing") {
+    hideCallOverlay();
     const ready = visiblePlayers().filter((player) => player.hand).length;
-    callText.textContent = room.aiko ? "あいこで..." : "選択中";
+    callText.textContent = room.aiko ? "あいこで..." : "手を選択";
     roundMessage.textContent = `${ready} / ${room.targetCount} 人が選択済み`;
     return;
   }
@@ -334,6 +341,7 @@ function renderCall() {
     const index = Math.min(calls.length - 1, Math.floor((roundDelay - remaining) / step));
     callText.textContent = calls[index];
     callText.classList.add("is-counting");
+    showCallOverlay(calls[index], room.aiko);
     roundMessage.textContent = "全員の手がそろいました。";
     callTimer = setTimeout(() => {
       if (remaining <= 0) finishRound();
@@ -343,6 +351,7 @@ function renderCall() {
   }
 
   if (room.status === "aiko") {
+    hideCallOverlay();
     callText.textContent = "あいこ";
     callText.classList.add("is-draw");
     roundMessage.textContent = "勝者が出るまで続けます。";
@@ -353,6 +362,7 @@ function renderCall() {
   }
 
   const winners = judgeRound(visiblePlayers());
+  hideCallOverlay();
   callText.textContent = winners.length ? `${winners.map((winner) => winner.name).join("、")} の勝ち!` : "あいこ";
   callText.classList.add(winners.some((winner) => winner.id === playerId) ? "is-win" : "is-draw");
   roundMessage.textContent = `第${room.round}回戦の結果`;
@@ -534,7 +544,8 @@ function renderHistory() {
   historyList.innerHTML = history
     .map((item) => {
       const handsText = item.hands.map((entry) => `${entry.name}:${hands[entry.hand]?.label || "?"}`).join(" / ");
-      const resultText = item.type === "draw" ? "あいこ" : `${item.winners.join("、")} 勝ち`;
+      const resultText =
+        item.type === "win" ? `${item.winners.join("、")} 勝ち` : item.type === "continue" ? "勝者未確定" : "あいこ";
       return `<li><span>${escapeHtml(`第${item.round}回 ${item.attempt}投目 ${resultText}`)}</span><span>${escapeHtml(handsText)}</span></li>`;
     })
     .join("");
@@ -545,7 +556,24 @@ function showMoveOverlay() {
   moveOverlay.classList.remove("hidden");
   moveTimer = setTimeout(() => {
     moveOverlay.classList.add("hidden");
-  }, 1900);
+  }, 2400);
+}
+
+function showCallOverlay(text, isAiko) {
+  if (text === lastCallOverlayText && !callOverlay.classList.contains("hidden")) return;
+  lastCallOverlayText = text;
+  callOverlayText.textContent = text;
+  callOverlay.classList.toggle("is-aiko", isAiko);
+  callOverlay.classList.remove("hidden");
+  callOverlayText.classList.remove("is-changing");
+  void callOverlayText.offsetWidth;
+  callOverlayText.classList.add("is-changing");
+}
+
+function hideCallOverlay() {
+  clearTimeout(callOverlayTimer);
+  callOverlay.classList.add("hidden");
+  lastCallOverlayText = "";
 }
 
 function render() {

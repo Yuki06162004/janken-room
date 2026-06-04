@@ -483,8 +483,8 @@ select:focus {
 }
 
 .move-card {
-  width: min(360px, 100%);
-  min-height: 260px;
+  width: min(420px, 100%);
+  min-height: 300px;
   display: grid;
   place-items: center;
   gap: 10px;
@@ -509,10 +509,21 @@ select:focus {
 }
 
 .move-card strong {
-  font-size: 1.55rem;
+  font-size: 1.8rem;
 }
 
 .move-card span {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(57, 111, 186, 0.1);
+  color: var(--blue);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.move-card p {
+  margin: 0;
   color: var(--muted);
   font-weight: 900;
 }
@@ -537,6 +548,38 @@ select:focus {
 
 .move-dots i:nth-child(3) {
   animation-delay: 240ms;
+}
+
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(57, 111, 186, 0.86), rgba(35, 124, 104, 0.88)),
+    var(--ink);
+  color: white;
+  text-align: center;
+}
+
+.call-overlay.is-aiko {
+  background:
+    linear-gradient(135deg, rgba(216, 74, 66, 0.9), rgba(243, 193, 75, 0.9)),
+    var(--ink);
+}
+
+.call-overlay-text {
+  max-width: 100%;
+  font-size: clamp(4rem, 18vw, 11rem);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.call-overlay-text.is-changing {
+  animation: call-pop 280ms ease both;
 }
 
 @keyframes punch {
@@ -578,6 +621,18 @@ select:focus {
 
   to {
     transform: translateY(-8px);
+  }
+}
+
+@keyframes call-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.78) rotate(-3deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
   }
 }
 
