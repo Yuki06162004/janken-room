@@ -110,6 +110,7 @@ function createRoom(id, targetCount = 2) {
     attempt: 1,
     targetCount,
     locked: false,
+    hasStarted: false,
     aiko: false,
     status: "choosing",
     startVotes: {},
@@ -128,6 +129,7 @@ function hydrateRoom(nextRoom) {
     attempt: nextRoom.attempt || 1,
     targetCount,
     locked: Boolean(nextRoom.locked) || players.filter((player) => player.name).length >= targetCount,
+    hasStarted: Boolean(nextRoom.hasStarted || nextRoom.history?.length || players.some((player) => player.hand)),
     aiko: Boolean(nextRoom.aiko),
     startVotes: nextRoom.startVotes || {},
     history: nextRoom.history || [],
@@ -139,12 +141,17 @@ function getName() {
   return nameInput.value.trim() || `プレイヤー${Math.floor(Math.random() * 90) + 10}`;
 }
 
+function getTargetCount() {
+  const value = Number.parseInt(targetCountInput.value, 10);
+  return Number.isFinite(value) ? Math.max(2, Math.min(99, value)) : 2;
+}
+
 async function joinRoom(id) {
   roomId = normalizeRoomId(id);
   if (!roomId) return;
   await initCloud();
   const existingRoom = await loadRoom(roomId);
-  room = existingRoom || createRoom(roomId, Number(targetCountInput.value) || 2);
+  room = existingRoom || createRoom(roomId, getTargetCount());
   playerId = sessionStorage.getItem(`janken-player-${roomId}`) || makeId(10);
   sessionStorage.setItem(`janken-player-${roomId}`, playerId);
 
@@ -158,9 +165,9 @@ async function joinRoom(id) {
     room.players.push({ id: playerId, name: getName(), hand: null, score: 0 });
   }
   room.locked = isRoomFull(room);
-  if (room.locked && room.status === "choosing" && !room.players.some((player) => player.hand)) {
+  if (room.locked && !room.hasStarted && room.status === "choosing" && !room.players.some((player) => player.hand)) {
     room.status = "ready";
-    room.startVotes = room.startVotes || {};
+    room.startVotes = {};
   }
 
   history.replaceState(null, "", getShareUrl(roomId));
@@ -231,14 +238,21 @@ async function chooseHand(hand) {
 async function voteStart(isReady) {
   room = (await loadRoom(room.id)) || room;
   const player = currentPlayer();
-  if (!player || room.status !== "ready") return;
+  if (!player || room.status !== "ready" || !room.locked) return;
 
   room.startVotes = room.startVotes || {};
   room.startVotes[player.id] = isReady;
 
   const players = visiblePlayers();
-  if (players.length === room.targetCount && players.every((item) => room.startVotes[item.id] === true)) {
+  const allPlayersReady =
+    players.length === room.targetCount &&
+    players.every((item) => Object.prototype.hasOwnProperty.call(room.startVotes, item.id)) &&
+    players.every((item) => room.startVotes[item.id] === true);
+
+  if (allPlayersReady) {
     room.status = "choosing";
+    room.startVotes = {};
+    room.hasStarted = true;
     room.aiko = false;
     room.scored = false;
     room.revealAt = 0;

@@ -89,6 +89,7 @@ p {
 .join-box,
 .share-panel,
 .my-panel,
+.settings-panel,
 .start-panel,
 .history-panel,
 .call-stage {
@@ -403,6 +404,26 @@ select:focus {
   padding: 16px;
 }
 
+.settings-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.settings-panel details {
+  padding: 16px;
+}
+
+.settings-panel summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.settings-panel details[open] summary {
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
 .history-panel > div {
   display: flex;
   justify-content: space-between;
@@ -602,12 +623,17 @@ select:focus {
   z-index: 30;
   display: grid;
   place-items: center;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   padding: 24px;
   background:
     linear-gradient(135deg, #396fba, #237c68),
     var(--ink);
   color: white;
   text-align: center;
+  touch-action: none;
 }
 
 .call-overlay.is-aiko {
@@ -617,8 +643,8 @@ select:focus {
 }
 
 .call-overlay-text {
-  max-width: 100%;
-  font-size: clamp(4rem, 18vw, 11rem);
+  width: min(100%, 980px);
+  font-size: clamp(3.2rem, 16vw, 10rem);
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
@@ -673,12 +699,12 @@ select:focus {
 @keyframes call-pop {
   from {
     opacity: 0;
-    transform: scale(0.78) rotate(-3deg);
+    transform: scale(0.88);
   }
 
   to {
     opacity: 1;
-    transform: scale(1) rotate(0);
+    transform: scale(1);
   }
 }
 
@@ -729,5 +755,13 @@ select:focus {
 
   .choice strong {
     font-size: 2.1rem;
+  }
+
+  .call-overlay {
+    padding: 12px;
+  }
+
+  .call-overlay-text {
+    font-size: clamp(3.4rem, 17vw, 6.2rem);
   }
 }

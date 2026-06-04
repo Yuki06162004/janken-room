@@ -21,13 +21,7 @@
           <label for="nameInput">あなたの名前</label>
           <input id="nameInput" type="text" maxlength="16" placeholder="例: ゆうき" />
           <label for="targetCountInput">何人で実施する</label>
-          <select id="targetCountInput">
-            <option value="2">2人</option>
-            <option value="3">3人</option>
-            <option value="4">4人</option>
-            <option value="5">5人</option>
-            <option value="6">6人</option>
-          </select>
+          <input id="targetCountInput" type="number" min="2" max="99" value="2" inputmode="numeric" />
           <div class="join-actions">
             <button id="createRoomButton" class="primary" type="button">ルーム作成</button>
             <button id="joinRoomButton" class="secondary" type="button">参加</button>
@@ -78,22 +72,7 @@
 
         <section id="players" class="players" aria-label="参加者"></section>
 
-        <section class="history-panel" aria-label="履歴">
-          <div>
-            <span class="label">履歴</span>
-            <strong id="historyTitle">まだ結果はありません</strong>
-          </div>
-          <ol id="historyList" class="history-list"></ol>
-        </section>
-
         <section class="my-panel" aria-label="自分の手">
-          <div class="name-edit">
-            <label for="myNameInput">自分の名前</label>
-            <div>
-              <input id="myNameInput" type="text" maxlength="16" />
-              <button id="saveNameButton" class="secondary small" type="button">変更</button>
-            </div>
-          </div>
           <div class="hand-status">
             <span class="label">あなたの手</span>
             <strong id="myStatus">未選択</strong>
@@ -118,6 +97,27 @@
           <button id="nextButton" class="secondary" type="button">次の勝負</button>
           <button id="resetButton" class="ghost" type="button">スコアリセット</button>
         </div>
+
+        <section class="settings-panel" aria-label="設定">
+          <details>
+            <summary>名前の変更</summary>
+            <div class="name-edit">
+              <label for="myNameInput">自分の名前</label>
+              <div>
+                <input id="myNameInput" type="text" maxlength="16" />
+                <button id="saveNameButton" class="secondary small" type="button">変更</button>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="history-panel" aria-label="履歴">
+          <div>
+            <span class="label">履歴</span>
+            <strong id="historyTitle">まだ結果はありません</strong>
+          </div>
+          <ol id="historyList" class="history-list"></ol>
+        </section>
       </section>
 
       <section id="moveOverlay" class="move-overlay hidden" aria-label="移動中">
